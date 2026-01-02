@@ -1,8 +1,7 @@
 import Axios from 'axios';
 
 const axios = Axios.create({
-  // baseURL: 'https://web-production-65a22.up.railway.app',
-  baseURL: 'http://localhost:8000',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
   headers: {
     'X-Requested-With': 'XMLHttpRequest',
     'Accept': 'application/json',
