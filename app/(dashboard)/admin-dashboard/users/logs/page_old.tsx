@@ -102,15 +102,15 @@ export default function UsersLogsPage() {
       log.role?.toLowerCase() === 'pusdatin'
     );
 
-    // Filter by search term
-    if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      result = result.filter(log => 
-        log.user_name?.toLowerCase().includes(lowerTerm) ||
-        log.action?.toLowerCase().includes(lowerTerm) ||
-        log.description?.toLowerCase().includes(lowerTerm)
-      );
-    }
+    // // Filter by search term
+    // if (searchTerm) {
+    //   const lowerTerm = searchTerm.toLowerCase();
+    //   result = result.filter(log => 
+    //     log.user_name?.toLowerCase().includes(lowerTerm) ||
+    //     log.action?.toLowerCase().includes(lowerTerm) ||
+    //     log.description?.toLowerCase().includes(lowerTerm)
+    //   );
+    // }
 
     return result;
   }, [logs, searchTerm]);
@@ -182,8 +182,8 @@ export default function UsersLogsPage() {
       {paginatedLogs.length > 0 ? (
         <LastActivityCard
           logs={paginatedLogs}
-          title="Aktivitas Terbaru Pusdatin"
-          showRole={false}
+          // title="Aktivitas Terbaru Pusdatin"
+          // showRole={false}
         />
       ) : (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
