@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from '../lib/axios';
 
@@ -24,6 +24,7 @@ export interface User {
   province_name?: string;
   regency_name?: string;
   pesisir?: string;
+  token?: string; // Add token definition if needed in user object
 }
 
 interface LoginCredentials {
@@ -53,6 +54,8 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void; // 🔥 EXPOSE SETTER
+  checkAuth: () => void; // 🔥 EXPOSE CHECK AUTH
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,7 +70,6 @@ const MOCK_PROVINCES: Province[] = [
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
-  // Hapus 'pathname' karena tidak digunakan
   
   // State Utama
   const [user, setUser] = useState<User | null>(null);
@@ -75,48 +77,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Data Wilayah
   const [provinces, setProvinces] = useState<Province[]>([]);
-  // Hapus setter yang belum dipakai agar ESLint senang
   const [regencies] = useState<Regency[]>([]); 
   const [jenisDlhs] = useState<JenisDlh[]>([]);
 
-  // --- 1. CEK USER SAAT RELOAD (REHYDRATION) ---
-  useEffect(() => {
-    const rehydrateUser = () => {
-      const token = localStorage.getItem('auth_token');
-      const cached = localStorage.getItem('user_data');
-      
-      if (token && cached) {
-        try {
-          const userData = JSON.parse(cached);
-          setUser(userData);
-          console.log('✅ Auth Restored:', userData.email);
-        } catch (e) {
-          console.error('❌ Cache Corrupt:', e);
-          localStorage.removeItem('user_data');
-          localStorage.removeItem('auth_token');
-        }
+  // --- 1. FUNGSI CEK AUTH (Bisa dipanggil manual) ---
+  const checkAuth = useCallback(() => {
+    const token = localStorage.getItem('auth_token');
+    const cached = localStorage.getItem('user_data');
+    
+    if (token && cached) {
+      try {
+        const userData = JSON.parse(cached);
+        setUser(userData);
+        // console.log('✅ Auth Restored:', userData.email);
+      } catch (e) {
+        console.error('❌ Cache Corrupt:', e);
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('auth_token');
+        setUser(null);
       }
-      setIsLoading(false);
-    };
-
-    rehydrateUser();
+    } else {
+        setUser(null);
+    }
+    setIsLoading(false);
   }, []);
+
+  // Jalankan checkAuth saat mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   // --- 2. FETCH DATA PENDUKUNG ---
   useEffect(() => {
-    if (isLoading) return;
-
     const initData = async () => {
         try {
              const res = await axios.get('/api/wilayah/provinces');
              setProvinces(res.data.data || res.data || MOCK_PROVINCES);
         } catch { 
-             // Hapus variable 'error' di catch karena tidak dipakai
              if (process.env.NODE_ENV === 'development') setProvinces(MOCK_PROVINCES);
         }
     };
     
-    initData();
+    if (!isLoading) {
+        initData();
+    }
   }, [isLoading]);
 
   // --- ACTIONS ---
@@ -134,10 +138,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user_data', JSON.stringify(userData));
+      
+      // Update State Langsung
       setUser(userData);
 
       const roleName = userData?.role?.name?.toLowerCase();
-      console.log('🔐 Login Success. Redirecting role:', roleName);
       
       if (roleName === 'admin') router.push('/admin-dashboard');
       else if (roleName === 'pusdatin') router.push('/pusdatin-dashboard');
@@ -155,7 +160,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (data: RegisterData) => {
     setIsLoading(true);
     try {
-      // FIX: Sesuaikan rute dengan routes/api.php lu (tanpa prefix /auth/)
       const response = await axios.post('/api/register', data);
       const token = response.data.token;
       const userData = response.data.user;
@@ -183,7 +187,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await axios.post('/api/logout');
     } catch {
-      // Hapus variable 'e' di catch karena tidak dipakai
       console.warn("Logout API error, forcing local logout");
     } finally {
       localStorage.clear();
@@ -202,7 +205,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         jenisDlhs, 
         login, 
         register, 
-        logout 
+        logout,
+        setUser,    // 🔥 Exported
+        checkAuth   // 🔥 Exported
     }}> 
       {children}
     </AuthContext.Provider>

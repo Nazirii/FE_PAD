@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import axios from '@/lib/axios';
 import SintaFullLogo from '@/components/SintaFullLogo.js';
+import { useAuth } from '@/context/AuthContext'; // 🔥 Import useAuth
 
 const EyeIcon = () => (
   <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -23,6 +24,8 @@ const EyeOffIcon = () => (
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setUser } = useAuth(); // 🔥 Ambil setUser dari context
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +46,9 @@ export default function LoginPage() {
       
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user_data', JSON.stringify(user));
+
+      // 🔥 UPDATE STATE CONTEXT MANUAL BIAR GAK PERLU REFRESH
+      setUser(user);
       
       // Redirect based on role
       const roleName = user.role?.name?.toLowerCase();

@@ -4,33 +4,47 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 
-// 1. FIX TYPESCRIPT: Definisikan tipe props secara eksplisit
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, checkAuth } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  // Ambil token langsung untuk pengecekan kondisi render (Derived State)
-  // Ini aman dilakukan di top-level component client-side
+  // 1. DERIVED STATE (Hitung di awal)
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  
+  // isSyncing = Kita punya token, tapi User di context masih null. 
+  // Artinya sedang proses "menghidupkan" user kembali.
+  const isSyncing = !user && token;
 
+  // 2. EFFECT 1: SAFETY NET / SYNCING
+  // Tugas: Memanggil checkAuth jika kondisi syncing terdeteksi
   useEffect(() => {
-    // Jangan jalan kalau AuthContext masih loading
-    if (isLoading) return;
+    if (isSyncing && !isLoading) {
+        // console.log('🔄 Syncing user state...');
+        checkAuth();
+    }
+  }, [isSyncing, isLoading, checkAuth]);
 
-    // 2. LOGIKA REDIRECT
-    // Jika User Kosong DAN Token Gak Ada -> Tendang
-    if (!user && !token) {
-      console.log('❌ Unauthorized (No User & No Token), redirecting...');
+  // 3. EFFECT 2: REDIRECT & ROLE CHECK
+  useEffect(() => {
+    // JANGAN JALAN jika masih Loading ATAU sedang Syncing
+    // Kita hapus 'isChecked' dan ganti pakai logika ini.
+    if (isLoading || isSyncing) return;
+
+    // A. LOGIKA KICK (Unauthorized)
+    // Cek token lagi langsung dari storage untuk keamanan ganda
+    const currentToken = localStorage.getItem('auth_token');
+    if (!user && !currentToken) {
+      // console.log('❌ Unauthorized, redirecting...');
       router.push('/login');
       return;
     }
 
-    // 3. LOGIKA ROLE CHECK (Hanya jalan jika user SUDAH ADA)
+    // B. LOGIKA ROLE CHECK (Salah Kamar)
     if (user?.role?.name) {
       const roleName = user.role.name.toLowerCase();
       
@@ -40,22 +54,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       else if (roleName === 'provinsi' || roleName === 'kabupaten/kota') correctDashboard = '/dlh-dashboard';
 
       if (correctDashboard && !pathname.startsWith(correctDashboard)) {
-        console.log(`⚠️ User ${roleName} nyasar. Redirecting ke: ${correctDashboard}`);
+        console.log(`⚠️ Redirecting ${roleName} to ${correctDashboard}`);
         router.push(correctDashboard);
       }
     }
 
-  }, [user, isLoading, router, pathname, token]);
+  }, [user, isLoading, isSyncing, router, pathname]); // Dependency updated
 
-  // --- TAMPILAN (RENDER LOGIC) ---
+  // --- TAMPILAN ---
 
-  // Definisi "Sedang Sync": User belum ada di state, TAPI token ada di storage.
-  // Ini kondisi yang bikin blank putih kalau tidak ditangani.
-  const isSyncing = !user && token;
-
-  // Tampilkan Loading jika:
-  // 1. AuthContext sedang loading
-  // 2. Sedang Sync (Token ada tapi User null)
+  // Tampilkan Loading jika Context Loading ATAU sedang Sync data user
   if (isLoading || isSyncing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -67,7 +75,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // Safety net terakhir: Jika user null dan token null, return null (karena useEffect akan me-redirect)
   if (!user) {
     return null; 
   }
