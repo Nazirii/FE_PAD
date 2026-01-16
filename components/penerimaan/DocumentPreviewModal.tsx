@@ -101,8 +101,16 @@ export default function DocumentPreviewModal({
     // Pusdatin: /api/pusdatin/review/submission/${submissionId}/preview/${docType}
     const docTypeParam = documentType === 'buku1' ? 'ringkasan-eksekutif' : documentType === 'buku2' ? 'laporan-utama' : 'lampiran';
     
-    axios.get(`/api/pusdatin/review/submission/${submissionId}/preview/${docTypeParam}`, {
-      responseType: 'blob'
+    // Tambahkan timestamp untuk cache-busting (mencegah browser cache)
+    const timestamp = Date.now();
+    
+    axios.get(`/api/pusdatin/review/submission/${submissionId}/preview/${docTypeParam}?t=${timestamp}`, {
+      responseType: 'blob',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     })
     .then(response => {
       const blob = new Blob([response.data], { type: 'application/pdf' });
